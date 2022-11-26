@@ -1,6 +1,6 @@
 const graphql = require('graphql');
 const joinMonster = require('join-monster')
-const { GraphQLObjectType, GraphQLString, GraphQLID, GraphQLList, GraphQLSchema } = graphql;
+const { GraphQLObjectType, GraphQLString, GraphQLID, GraphQLList, GraphQLSchema, GraphQLNonNull } = graphql;
 const { Client } = require('pg');
 const client = new Client({
     host: "localhost",
@@ -32,10 +32,11 @@ const BookType = new GraphQLObjectType({
         id: { type: GraphQLID },
         name: { type: GraphQLString },
         genre: { type: GraphQLString },
+        authorid: { type: GraphQLID },
         author: {
             type: AuthorType,
             async resolve(parent, args) {
-                const res = await client.query(`SELECT * FROM authors WHERE id= ${parent.authorId} `)
+                const res = await client.query(`SELECT * FROM authors WHERE id= ${parent.authorid} `)
                 return (res.rows[0])
             }
         }
@@ -98,7 +99,40 @@ const RootQuery = new GraphQLObjectType({
     }
 })
 
+const Mutation = new GraphQLObjectType({
+    name: 'Mutation',
+    fields: {
+        addAuthor: {
+            type: AuthorType,
+            args: {
+                name: { type: GraphQLString },
+                id: { type: GraphQLID }
+            },
+            async resolve(parent, args) {
+                await client.query(`INSERT INTO authors(id,name) VALUES (${args.id},'${args.name}')`)
+                const res = await client.query(`SELECT * FROM authors WHERE id= ${args.id} `)
+                return res.rows[0]
+            }
+        },
+        addBook: {
+            type: BookType,
+            args: {
+                id: { type: new GraphQLNonNull(GraphQLID) },
+                name: { type: new GraphQLNonNull(GraphQLString) },
+                genre: { type: new GraphQLNonNull(GraphQLString) },
+                authorid: { type: new GraphQLNonNull(GraphQLID) }
+            },
+            async resolve(parent, args) {
+                await client.query(`INSERT INTO books(id,name,genre,authorid) VALUES (${args.id},'${args.name}','${args.genre}',  ${args.authorid})`)
+                const res = await client.query(`SELECT * FROM books WHERE id= ${args.id} `)
+                return res.rows[0]
+            }
+        }
+    }
+});
+
 
 module.exports = new GraphQLSchema({
-    query: RootQuery
+    query: RootQuery,
+    mutation: Mutation
 })
