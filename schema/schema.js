@@ -1,8 +1,17 @@
 const graphql = require('graphql');
-
+const joinMonster = require('join-monster')
 const { GraphQLObjectType, GraphQLString, GraphQLID, GraphQLList, GraphQLSchema } = graphql;
+const { Client } = require('pg');
+const client = new Client({
+    host: "localhost",
+    user: "postgres",
+    port: 5432,
+    password: "anand",
+    database: "books"
+})
 
-//dummyData 
+client.connect()
+
 
 var books = [
     { name: 'Wings Of Fire', genre: 'auto biography', id: '1', authorId: '1' },
@@ -20,13 +29,14 @@ var authors = [
 const BookType = new GraphQLObjectType({
     name: "Book",
     fields: () => ({
-        id: { type: GraphQLString },
+        id: { type: GraphQLID },
         name: { type: GraphQLString },
         genre: { type: GraphQLString },
         author: {
             type: AuthorType,
-            resolve(parent, args) {
-                return authors.find(author => author.id === parent.authorId);
+            async resolve(parent, args) {
+                const res = await client.query(`SELECT * FROM authors WHERE id= ${parent.authorId} `)
+                return (res.rows[0])
             }
         }
     })
@@ -34,12 +44,14 @@ const BookType = new GraphQLObjectType({
 const AuthorType = new GraphQLObjectType({
     name: "Author",
     fields: () => ({
-        id: { type: GraphQLString },
+        id: { type: GraphQLID },
         name: { type: GraphQLString },
         books: {
             type: new GraphQLList(BookType),
-            resolve(parent, args) {
-                return books.filter(book => book.authorId === parent.id);
+            async resolve(parent, args) {
+                // return books.filter(book => book.authorId === parent.id);
+                const res = await client.query(`SELECT * FROM books WHERE id= ${parent.id} `)
+                return (res.rows)
             }
         }
     })
@@ -51,31 +63,36 @@ const RootQuery = new GraphQLObjectType({
         book: {
             type: BookType,
             args: { id: { type: GraphQLID } },
-            resolve(parent, args) {
+            async resolve(parent, args) {
                 //code to retrieve from db
-                console.log(books.find(book => book.id === args.id))
-                return books.find(book => book.id === args.id);
+                const res = await client.query(`SELECT * FROM books WHERE id= ${args.id} `)
+                return (res.rows[0])
             }
         },
         author: {
             type: AuthorType,
             args: { id: { type: GraphQLID } },
-            resolve(parent, args) {
+            async resolve(parent, args) {
                 //code to retrieve from db
-                console.log(authors.find(author => author.id === args.id))
-                return authors.find(author => author.id === args.id);
+                const res = await client.query(`SELECT * FROM authors WHERE id= ${args.id} `)
+                return (res.rows[0])
             }
         },
         books: {
             type: new GraphQLList(BookType),
-            resolve(parent, args) {
-                return books
+            async resolve(parent, args) {
+                const res = await client.query('SELECT * FROM books')
+                // console.log(res.rows)
+                return (res.rows)
             }
+
         },
         authors: {
             type: new GraphQLList(AuthorType),
-            resolve(parent, args) {
-                return authors
+            async resolve(parent, args) {
+                const res = await client.query('SELECT * FROM authors')
+                // console.log(res.rows)
+                return (res.rows)
             }
         }
     }
