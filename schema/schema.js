@@ -1,5 +1,4 @@
 const graphql = require('graphql');
-const joinMonster = require('join-monster')
 const { GraphQLObjectType, GraphQLString, GraphQLID, GraphQLList, GraphQLSchema, GraphQLNonNull } = graphql;
 const { Client } = require('pg');
 const client = new Client({
@@ -51,8 +50,9 @@ const AuthorType = new GraphQLObjectType({
             type: new GraphQLList(BookType),
             async resolve(parent, args) {
                 // return books.filter(book => book.authorId === parent.id);
-                const res = await client.query(`SELECT * FROM books WHERE id= ${parent.id} `)
-                return (res.rows)
+                const res = await client.query(`SELECT * FROM books`)
+                console.log(res.rows)
+                return (res.rows.filter(book => book.authorid === parent.id))
             }
         }
     })
@@ -117,14 +117,14 @@ const Mutation = new GraphQLObjectType({
         addBook: {
             type: BookType,
             args: {
-                id: { type: new GraphQLNonNull(GraphQLID) },
                 name: { type: new GraphQLNonNull(GraphQLString) },
                 genre: { type: new GraphQLNonNull(GraphQLString) },
                 authorid: { type: new GraphQLNonNull(GraphQLID) }
             },
             async resolve(parent, args) {
-                await client.query(`INSERT INTO books(id,name,genre,authorid) VALUES (${args.id},'${args.name}','${args.genre}',  ${args.authorid})`)
-                const res = await client.query(`SELECT * FROM books WHERE id= ${args.id} `)
+                await client.query(`INSERT INTO books(name,genre,authorid) VALUES ('${args.name}','${args.genre}',  ${args.authorid})`)
+                const res = await client.query(`SELECT * FROM books WHERE name= '${args.name}'`)
+                console.log(res.rows)
                 return res.rows[0]
             }
         }
